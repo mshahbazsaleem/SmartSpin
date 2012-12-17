@@ -1,7 +1,7 @@
-﻿(function($) {
+ (function($) {
     $.fn.extend({
         spinit: function(options) {
-            var settings = $.extend({ min: 0, max: 100, initValue: 0, callback: null, stepInc: 1, pageInc: 10, width: 50, height: 15, btnWidth: 10, mask: '' }, options);
+            var settings = $.extend({ min: 'none', max: 'none', initValue: 0, callback: null, stepInc: 1, pageInc: 10,  roundPrecision : 'none', width: 'inherit', height: 'inherit', btnWidth: 10, mask: '' }, options);
             return this.each(function() {
                 var UP = 38;
                 var DOWN = 40;
@@ -12,13 +12,19 @@
                 var interval;
                 var direction = 'none';
                 var isPgeInc = false;
-                var value = Math.max(settings.initValue, settings.min);
-                var el = $(this).val(value).css('width', (settings.width) + 'px').css('height', settings.height + 'px').addClass('smartspinner');
+                var value = getNewValueByInputValueAndMinOption(settings.initValue);
+                var el = $(this).val(value).addClass('smartspinner');
+                if (settings.width != 'inherit') {
+                    el.css('width', (settings.width) + 'px');
+                }
+                if (settings.height != 'inherit') {
+                    el.css('height', settings.height + 'px');
+                }
                 raiseCallback(value);
                 if (settings.mask != '') el.val(settings.mask);
                 $.fn.reset = function(val) {
                     if (isNaN(val)) val = 0;
-                    value = Math.max(val, settings.min);
+                    value = getNewValueByInputValueAndMinOption(val);
                     $(this).val(value);
                     raiseCallback(value);
                 };
@@ -58,9 +64,8 @@
                     el.val(value);
                 });
                 el.mousemove(function(e) {
-
-                    if (e.pageX > (el.offset().left + settings.width) - settings.btnWidth - 4) {
-                        if (e.pageY < el.offset().top + settings.height / 2)
+                    if (e.pageX > (el.offset().left + el.width()) - settings.btnWidth - 4) {
+                        if (e.pageY < el.offset().top + el.height() / 2)
                             setDirection('up');
                         else
                             setDirection('down');
@@ -82,7 +87,8 @@
                 el.mouseleave(function(e) {
                     setDirection('none');
                     if (settings.mask != '') el.val(settings.mask);
-                }); el.keydown(function(e) {
+                });
+                el.keydown(function(e) {
                     switch (e.which) {
                         case UP:
                             setDirection('up');
@@ -118,7 +124,7 @@
                     }
                     if (e.which >= 48 && e.which <= 57) {
                         var temp = parseFloat(el.val() + (e.which - 48));
-                        if (temp >= settings.min && temp <= settings.max) {
+                        if (isValueInMinMaxSegment(temp)) {
                             value = temp;
                             raiseCallback(value);
                         }
@@ -130,7 +136,7 @@
                 el.blur(function() {
                     if (settings.mask == '') {
                         if (el.val() == '')
-                            el.val(settings.min);
+                            el.val(settings.min != 'none' ? settings.min  : 0);
                     }
                     else {
                         el.val(settings.mask);
@@ -179,29 +185,42 @@
                     return '';
                 }
                 function setValue(a, b) {
-                    if (a >= settings.min && a <= settings.max) {
+                    if (isValueInMinMaxSegment(a)) {
                         value = b;
                     } el.val(value);
                 }
                 function onValueChange() {
                     if (direction == 'up') {
                         value += settings.stepInc;
-                        if (value > settings.max) value = settings.max;
+                        value = getNewValueByInputValueAndMaxOption(value);
+                        if (settings.roundPrecision != 'none') {
+                            value = roundValueToPrecision(value);
+                        }
+                        value = getNewValueByInputValueAndMaxOption(value);
                         setValue(parseFloat(el.val()), value);
                     }
                     if (direction == 'down') {
                         value -= settings.stepInc;
-                        if (value < settings.min) value = settings.min;
+                        value = getNewValueByInputValueAndMinOption(value);
+                        if (settings.roundPrecision != 'none') {
+                            value = roundValueToPrecision(value);
+                        }
                         setValue(parseFloat(el.val()), value);
                     }
                     if (direction == 'pup') {
                         value += settings.pageInc;
-                        if (value > settings.max) value = settings.max;
+                        value = getNewValueByInputValueAndMaxOption(value);
+                        if (settings.roundPrecision != 'none') {
+                            value = roundValueToPrecision(value);
+                        }
                         setValue(parseFloat(el.val()), value);
                     }
                     if (direction == 'pdown') {
                         value -= settings.pageInc;
-                        if (value < settings.min) value = settings.min;
+                        value = getNewValueByInputValueAndMinOption(value);
+                        if (settings.roundPrecision != 'none') {
+                            value = roundValueToPrecision(value);
+                        }
                         setValue(parseFloat(el.val()), value);
                     }
                     raiseCallback(value);
@@ -209,6 +228,20 @@
                 function setClass(name) {
                     el.removeClass('up').removeClass('down');
                     if (name != '') el.addClass(name);
+                }
+                function getNewValueByInputValueAndMinOption(val) {
+                    return settings.min != 'none' ? Math.max(val, settings.min) : val;
+                }
+                function getNewValueByInputValueAndMaxOption(val) {
+                    return settings.max != 'none' ? Math.min(val, settings.max) : val;
+                }           
+                function isValueInMinMaxSegment (val) {
+                    return ((settings.min == 'none' || val >= settings.min) && (settings.max == 'none' || val <= settings.max));
+                }
+                function roundValueToPrecision(value)
+                {
+                    var preFactor = Math.pow(10, settings.roundPrecision);
+                    return Math.round(value * preFactor)/preFactor;
                 }
             });
         }
